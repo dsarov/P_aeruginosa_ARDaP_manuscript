@@ -151,5 +151,7 @@ echo -e "Number of true negatives($Antibiotic) = $TrueNegative"
 #echo -e "            Intermediate strains identified as resistant = $FalseIntermediate_int_FP" 
 #echo -e "            Intermediate strains identified as sensitive = $FalseIntermediate_int_FN" 
 TotalStrains=$(echo "$FalseNegative + $FalsePositive + $TruePositive + $TrueNegative + $TrueIntermediate + $FalseIntermediate" | bc)
+true_pos_true_neg=$( echo "$TruePositive + $TrueNegative" | bc)
+APV=$(echo "$true_pos_true_neg / $TotalStrains" | bc)
 echo -e "Total number of strains($Antibiotic) = $TotalStrains\n"
 exit 0
