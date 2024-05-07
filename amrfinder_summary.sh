@@ -1,14 +1,14 @@
 #! /bin/bash
 
 #echo -e "This script will determine the rate of false positives, false negatives, true positive and true negatives following a complete ARDaP run.\n\n"
-#echo -e "The false positive assessment for coverage requires the reference genome in the same directory and specified in the command line"
 
-# The script requires the following files
+#to run this script
+# e.g. amrfinder_summary.sh MEROPENEM CARBAPENEM
 
-DATASHEET=/home/dsarovich2/bin/ARDaP/Databases/Pseudomonas_aeruginosa/Pa_res_data.txt
+#The first variable is the anitibiotic to be interrogated (and the files containing the list of sensitive strains and resistant strains should follow the convention MEROPENEM.R.txt and MEROPENEM.S.txt in the above example.
+#The second variable is the search term used to look through the AMRFinder outputs.
 
-ref=/home/dsarovich/bin/Pa_PAO1.fasta
-RESISTANCE_DB=/home/dsarovich/bin/Pseudomonas_aeruginosa_pao1.db
+
 false_pos_check=0
 false_neg_check=0
 
@@ -83,11 +83,11 @@ fi
  
 #echo -e "Running pipeline assessment for $Antibiotic\n\n"
 while read SensitiveStrain; do
-    if [ ! -s ${SensitiveStrain}_final.output ]; then
+    if [ ! -s ${SensitiveStrain}.output ]; then
       echo -e "Cannot find the AbR output for the sensitive strain ${SensitiveStrain}. Did resfinder complete normally?"
       echo -e "Please check and re-run"
 	  echo "${SensitiveStrain}" >> missing_isolates.txt
-      sleep 5
+      #sleep 5
     else 
     #  echo -e "Testing sensitive strain $SensitiveStrain\n"
 	  #find res line
@@ -95,7 +95,7 @@ while read SensitiveStrain; do
 	    rm tmp.txt
 	  fi
 	  #grep -w ${search_term} ${SensitiveStrain}.output &> /dev/null
-	  awk -v search=${search_term} -F "\t" '$12 ~ search { exit 1 }' ${SensitiveStrain}_final.output &> /dev/null
+	  awk -v search=${search_term} -F "\t" '$12 ~ search { exit 1 }' ${SensitiveStrain}.output &> /dev/null
 	  status=$?
 	  if [ "$status" == 1 ]; then #sensitive strain but called as resistant
 	     FalsePositive=$((FalsePositive+1))
@@ -111,18 +111,18 @@ done < "$Antibiotic".S.txt
 
 if [ -s "$Antibiotic".R.txt ]; then
   while read ResistantStrain; do
-    if [ ! -s ${ResistantStrain}_final.output  ]; then
+    if [ ! -s ${ResistantStrain}.output  ]; then
 	  echo -e "Cannot find AbR output for the resistant strain ${ResistantStrain}"
       echo -e "Please check and re-run"
 	  echo "${ResistantStrain}" >> missing_isolates.txt
-      sleep 5
+      #sleep 5
 	else
     # echo -e "Testing resistant strain $ResistantStrain\n"
       if [ -s tmp.txt ]; then 
 	    rm tmp.txt
 	  fi	 
 	  #grep -w ${search_term} ${ResistantStrain}.output &> /dev/null
-	  awk -v search=${search_term} -F "\t" '$12 ~ search { exit 1 }' ${ResistantStrain}_final.output &> /dev/null
+	  awk -v search=${search_term} -F "\t" '$12 ~ search { exit 1 }' ${ResistantStrain}.output &> /dev/null
 	  status=$? 
 	  if [ "$status" == 1 ]; then  #Resistant strain called as resistant
 	   TruePositive=$((TruePositive+1))
@@ -151,6 +151,6 @@ echo -e "Number of true negatives($Antibiotic) = $TrueNegative"
 #echo -e "            Sensitive strains identified as intermediate = $FalseIntermediate_sens_FP" 
 #echo -e "            Intermediate strains identified as resistant = $FalseIntermediate_int_FP" 
 #echo -e "            Intermediate strains identified as sensitive = $FalseIntermediate_int_FN" 
-TotalStrains=$(echo "$FalseNegative + $FalsePositive + $TruePositive + $TrueNegative + $TrueIntermediate + $FalseIntermediate" | bc)
+TotalStrains=$(echo "$FalseNegative + $FalsePositive + $TruePositive + $TrueNegative" | bc)
 echo -e "Total number of strains($Antibiotic) = $TotalStrains\n"
 exit 0

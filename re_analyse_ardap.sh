@@ -11,6 +11,7 @@ source /home/dsarovich/bin/gatk_source_card.config
 #Option to repeat analysis against the CARD database
 repeat_card=0
 
+resfinder_stringency=3
 #identify which files need to be created
 
 #test for bam and bam.bai
@@ -32,7 +33,7 @@ reference="Pa_PAO1.fasta"
 ref_base="Pa_PAO1"
 reference_location="/home/dsarovich/bin/ardap/Databases/Pseudomonas_aeruginosa_pao1/Pa_PAO1.fasta"
 pt_metadata="/home/dsarovich/bin/ardap/Reports/data/patientMetaData.csv"
-resistance_db="/home/dsarovich/.nextflow/assets/dsarov/ardap/Databases/Pseudomonas_aeruginosa_pao1/Pseudomonas_aeruginosa_pao1.db"
+resistance_db="/home/dsarovich/bin/ardap/Databases/Pseudomonas_aeruginosa_pao1/Pseudomonas_aeruginosa_pao1.db"
 baseDir="/home/dsarovich/bin/ardap"
 snpeff="Pseudomonas_aeruginosa_pao1"
 #resistance_db_card="/home/dsarovich/bin/Pseudomonas_aeruginosa_pao1_CARD.db"
@@ -99,7 +100,7 @@ if [ ! -d "$id" ]; then
 else
   cd "$id"
   rm ./*
-fi 
+fi
 
 sleep 1
 
@@ -116,12 +117,17 @@ ln -s "$reference_location"
 ln -s "$pt_metadata"
 echo "done"
 
+if [ ! -d ../../Outputs/Resfinder/ ]; then
+mkdir ../../Outputs/Resfinder/
+fi
+
+
 #run resfinder
 if [ "$repeat_resfinder" == 1 ]; then
-python3 ~/.nextflow/assets/dsarov/ardap/bin/resfinder/run_resfinder.py -ifq "$id"_1_sequence.fastq.gz "$id"_2_sequence.fastq.gz -acq -db_res /home/dsarovich/.nextflow/assets/dsarov/ardap/Databases/Resfinder_general
+python3 ~/.nextflow/assets/dsarov/ardap/bin/resfinder/run_resfinder.py -ifq "$id"_1_sequence.fastq.gz "$id"_2_sequence.fastq.gz -acq -db_res_kma /home/dsarovich/bin/ardap/Databases/Resfinder_general -db_res /home/dsarovich/bin/ardap/Databases/Resfinder_general
 
 mv pheno_table.txt ${id}_resfinder.txt
-
+cp ${id}_resfinder.txt ../../Outputs/Resfinder/${id}_resfinder.txt
 fi
 
 echo "re-running variant recalculations"
@@ -130,7 +136,7 @@ echo "Calculating duplication and deletion events"
 
 echo "indexing ref"
 samtools faidx ${reference}
-bedtools makewindows -g ${reference}.fai -w 1000 > ${reference}.bed
+bedtools makewindows -g ${reference}.fai -w 100000000 > ${reference}.bed
 echo "done"
 echo "recalculating depth"
 mosdepth --by ${reference}.bed output ${id}.dedup.bam
@@ -278,13 +284,13 @@ run_SQL () {
 # ${id}.duplication_summary.txt
 #  ${id}.deletion_summary.txt
 #  patientMetaData.csv
-#  resistance_db 
+#  resistance_db
 echo "running snps"
-bash /home/dsarovich/bin/ardap_scripts/SQL_queries_SNP_indel.sh ${id} ${resistance_db}
+bash /home/dsarovich/bin/ardap/bin/SQL_queries_SNP_indel.sh ${id} ${resistance_db}
 echo "running del and dup"
-bash /home/dsarovich/bin/ardap_scripts/SQL_queries_DelDup.sh ${id} ${resistance_db}
+bash /home/dsarovich/bin/ardap/bin/SQL_queries_DelDup.sh ${id} ${resistance_db}
 echo "creating reports"
-bash /home/dsarovich/.nextflow/assets/dsarov/ardap/bin/AbR_reports.sh ${id} ${resistance_db}
+bash /home/dsarovich/bin/ardap/bin/AbR_reports.sh ${id} ${resistance_db}
 
 
 bash /home/dsarovich/bin/ardap/bin/Report_html.sh Pseudomonas_aeruginosa
@@ -298,15 +304,16 @@ run_SQL
 #calculating individual drug scores
 echo "Calculating cumulative scores"
 awk -F "," '{ print $3 }' drug.table.txt.backup > antibiotic.loop.file
+
 while read Antibiotic; do
-  awk -F "|" -v Ab="$Antibiotic" '$4 ~  Ab { print $0 }' "$id".AbR_output.final.txt >temp.file.loop
+  awk -F "|" -v Ab="$Antibiotic" '$4 ~ Ab { print $0 }' "$id".AbR_output.final.txt >temp.file.loop
 
 #return just the lines containing that antibiotic
   cumulative_score=0
   while read line; do
     echo "$line" >tmp.file
     #return column matching Ab
-    Ab_col=$(awk -F"|" '{print $4 }' tmp.file | sed 's/,/\n/g' | head -n1 | grep "$Antibiotic" | awk '{print $1}')
+    Ab_col=$(awk -F"|" '{print $4 }' tmp.file | sed 's/,/\n/g' | grep -n "$Antibiotic" |  awk -F: '{ print $1 }' )
     score_col=$(awk -F"|" '{print $5 }' tmp.file | awk -F"," -v col=$Ab_col '{ print $col }')
     cumulative_score=$(echo "$cumulative_score + $score_col" | bc)
 	#causing a syntax error here if no antibiotic score is included.
@@ -347,4 +354,3 @@ fi
 if [ ! -s ../../Outputs/AbR_reports/"$id".AbR_output.final.cumulative.txt ]; then
  cp "$id".AbR_output.final.cumulative.txt ../../Outputs/AbR_reports/"$id".AbR_output.cumulative.final.txt
 fi
-

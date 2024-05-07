@@ -23,12 +23,7 @@ TrueNegative=0
 TruePositive=0
 FalseIntermediate=0
 TrueIntermediate=0
-FalseIntermediate_res_FN=0
-FalseIntermediate_sens_FP=0
-FalseIntermediate_int_FN=0
-FalseIntermediate_int_FP=0
-good_int=0
-bad_int=0
+
 ## Logic flow
 
 # for each antibiotic; determine the following numbers
@@ -45,13 +40,13 @@ bad_int=0
 
 
 
-if [ ! -f "$Antibiotic".R.txt ]; then
+if [ ! -s "$Antibiotic".R.txt ]; then
    echo "Cannot find file listing resistant strains"
    echo "I am looking for this file --> ${Antibiotic}.R.txt"
    echo "Please check and re-run if there should be resistant strains in this dataset"
   # exit 1
 fi
-if [ ! -f "$Antibiotic".S.txt ]; then
+if [ ! -s "$Antibiotic".S.txt ]; then
    echo "Cannot find file listing resistant strains"
    echo "I am looking for this file --> ${Antibiotic}.S.txt"
    echo "Please check and re-run if there should be sensitive strains in this dataset"
@@ -111,30 +106,18 @@ while read SensitiveStrain; do
 		 echo -e "$SensitiveStrain,False Positive for $Antibiotic" >> Pipeline_False_Positives.${Antibiotic}.FULL.txt
 		 cat ../${SensitiveStrain}.AbR_output.final.txt >> Pipeline_False_Positives.${Antibiotic}.FULL.txt
 		 echo -e "\n" >> Pipeline_False_Positives.${Antibiotic}.FULL.txt
-	  else #look for intermediate
-	     Antibiotic_res=${Antibiotic}i
-	     awk -F "|" -v Ab=$Antibiotic_res '$4 ~ Ab { exit 1 }' ../${SensitiveStrain}.AbR_output.final.txt &> /dev/null
-		 status=$?
-		 if [ "$status" == 1 ]; then #sensitive strain but called as intermediate
-           FalseIntermediate=$((FalseIntermediate+1)) #Sensitive strain called as Intermediate	
-		   FalseIntermediate_sens_FP=$((FalseIntermediate_sens_FP+1))
-	       echo -e "$SensitiveStrain, Sensitive strain identified as intermediate for $Antibiotic" >> Pipeline_False_Intermediate.sensitive.FP.${Antibiotic}.txt
-		   echo -e "$SensitiveStrain, Sensitive strain, called as intermediate for $Antibiotic" >> Pipeline_False_Intermediate.sensitive.FP.${Antibiotic}.FULL.txt
-		   cat ../${SensitiveStrain}.AbR_output.final.txt >> Pipeline_False_Intermediate.sensitive.FP.${Antibiotic}.FULL.txt
-		   echo -e "\n" >> Pipeline_False_Intermediate.sensitive.FP.${Antibiotic}.FULL.txt
-		 else 
-		   TrueNegative=$((TrueNegative+1)) #Sensitive strain not called as resistant or intermediate
-           echo -e "$SensitiveStrain,True Negative for $Antibiotic" >> Pipeline_True_Negatives.${Antibiotic}.txt		 
-		 fi
-	   fi
+	  else
+         TrueNegative=$((TrueNegative+1)) #Sensitive strain not called as resistant
+         echo -e "$SensitiveStrain,True Negative for $Antibiotic" >> Pipeline_True_Negatives.${Antibiotic}.txt		 
+	  fi
     fi
 done < ../"$Antibiotic".S.txt
 
 
-if [ -f ../"$Antibiotic".R.txt ]; then
+if [ -s ../"$Antibiotic".R.txt ]; then
   while read ResistantStrain; do
     if [ ! -s ../${ResistantStrain}.AbR_output.final.txt ]; then
-	  echo -e "I Cannot find AbR output for the resistant strain ${ResistantStrain}"
+	  echo -e "Cannot find AbR output for the resistant strain ${ResistantStrain}"
       echo -e "Please check and re-run"
       echo "Exiting"
       exit 1
@@ -151,26 +134,19 @@ if [ -f ../"$Antibiotic".R.txt ]; then
 	   awk -F "|" -v Ab="$Antibiotic_int" '$4 ~ Ab { exit 1} ' ../${ResistantStrain}.AbR_output.final.txt &> /dev/null
 	   status=$? 
 	   if [ "$status" == 1 ]; then
-	     FalseIntermediate=$((FalseIntermediate+1)) #resistant strain identified as intermediate
-		 FalseIntermediate_res_FN=$((FalseIntermediate_res_FN+1))
-	     echo -e "$ResistantStrain, Resistant strain identified as intermediate for $Antibiotic" >> Pipeline_False_Intermediate.resistant.FN.${Antibiotic}.txt
-		 echo -e "$ResistantStrain, Resistant strain identified as intermediate for $Antibiotic" >> Pipeline_False_Intermediate.resistant.FN.${Antibiotic}.FULL.txt
-		 cat ../${ResistantStrain}.AbR_output.final.txt >> Pipeline_False_Intermediate.resistant.FN.${Antibiotic}.FULL.txt
-		 echo -e "\n" >> Pipeline_False_Intermediate.resistant.FN.${Antibiotic}.FULL.txt
+	     FalseIntermediate=$((FalseIntermediate+1))
+	     echo -e "$ResistantStrain,Resistant strain identified as Intermediate for $Antibiotic" >> Pipeline_False_Intermediate.${Antibiotic}.txt
        else
 	     FalseNegative=$((FalseNegative+1)) #Resistant strain not called as resistant	
 	     echo -e "$ResistantStrain,False Negative for $Antibiotic" >> Pipeline_False_Negatives.${Antibiotic}.txt
-		 echo -e "$ResistantStrain,False Negative for $Antibiotic" >> Pipeline_False_Negatives.${Antibiotic}.FULL.txt
-		 cat ../${ResistantStrain}.AbR_output.final.txt >> Pipeline_False_Negatives.${Antibiotic}.FULL.txt
-		 echo -e "\n" >> Pipeline_False_Negatives.${Antibiotic}.FULL.txt
        fi	  
 	  fi 
 	fi  
   done < ../"$Antibiotic".R.txt
 fi
 
-if [ -f ../"$Antibiotic".I.txt ]; then
-    echo "found list of intermediate strains"
+if [ -s ../"$Antibiotic".I.txt ]; then
+    #echo "found list of intermediate strains"
     while read IntermediateStrain; do
         if [ ! -s ../${IntermediateStrain}.AbR_output.final.txt ]; then
 	        echo -e "Cannot find AbR output for the Intermediate strain ${IntermediateStrain}"
@@ -179,34 +155,22 @@ if [ -f ../"$Antibiotic".I.txt ]; then
             exit 1
 	    else
             # echo -e "Testing $IntermediateStrain\n"	
-			Antibiotic_int=${Antibiotic}r
+			Antibiotic_int=${Antibiotic}i
             awk -F "|" -v Ab=$Antibiotic_int '$4 ~ Ab { exit 1}' ../${IntermediateStrain}.AbR_output.final.txt &> /dev/null
 	        status=$? 
 	        if [ "$status" == 1 ]; then  #Intermediate strain called as Intermediate
-	            FalseIntermediate=$((FalseIntermediate+1)) #Intermediate strain identified as resistant	
-				FalseIntermediate_int_FP=$((FalseIntermediate_int_FP+1))
-				#echo "Found $IntermediateStrain" 
-	            echo -e "$IntermediateStrain, Intermediate strain identified as resistant for $Antibiotic" >> Pipeline_False_Intermediate.intermediate.FP.${Antibiotic}.txt
-				echo -e "$IntermediateStrain, Intermediate strain, called as resistance for $Antibiotic" >> Pipeline_False_Intermediate.intermediate.FP.${Antibiotic}.FULL.txt
-		        cat ../${IntermediateStrain}.AbR_output.final.txt >> Pipeline_False_Intermediate.intermediate.FP.${Antibiotic}.FULL.txt
-				echo -e "\n" >> Pipeline_False_Intermediate.intermediate.FP.${Antibiotic}.FULL.txt
+	            TrueIntermediate=$((TrueIntermediate+1))
+	            echo -e "$IntermediateStrain,True Intermediate for $Antibiotic" >> Pipeline_True_Intermediate.${Antibiotic}.txt
 	        else
-                Antibiotic_int=${Antibiotic}i
+                Antibiotic_int=${Antibiotic}r
 				awk -F "|" -v Ab=$Antibiotic_int '$4 ~ Ab { exit 1}' ../${IntermediateStrain}.AbR_output.final.txt &> /dev/null
 				status=$?
 				if [ "$status" == 1 ]; then  #Intermediate strain called as resistant
-				  TrueIntermediate=$((TrueIntermediate+1))
-	              echo -e "$IntermediateStrain,True Intermediate for $Antibiotic" >> Pipeline_True_Intermediate.${Antibiotic}.txt
-				  echo -e "$IntermediateStrain,True Intermediate for $Antibiotic" >> Pipeline_True_Intermediate.${Antibiotic}.FULL.txt
-		          cat ../${IntermediateStrain}.AbR_output.final.txt >> Pipeline_True_Intermediate.${Antibiotic}.FULL.txt
-				  echo -e "\n" >> Pipeline_True_Intermediate.${Antibiotic}.FULL.txt
+				  FalseIntermediate=$((FalseIntermediate+1)) #Intermediate strain not called as Intermediate	
+	              echo -e "$IntermediateStrain,Intermediate strain identified as resistant for $Antibiotic" >> Pipeline_False_Intermediate.${Antibiotic}.txt
 				else
 				  FalseIntermediate=$((FalseIntermediate+1))
-				  FalseIntermediate_int_FN=$((FalseIntermediate_int_FN+1))
-				  echo -e "$IntermediateStrain, Intermediate strain, identified as sensitive for $Antibiotic" >> Pipeline_False_Intermediate.intermediate.FN.${Antibiotic}.txt
-                  echo -e "$IntermediateStrain, Intermediate strain, called as sensitive for $Antibiotic" >> Pipeline_False_Intermediate.intermediate.FN.${Antibiotic}.FULL.txt
-		          cat ../${IntermediateStrain}.AbR_output.final.txt >> Pipeline_False_Intermediate.intermediate.FN.${Antibiotic}.FULL.txt	
-                  echo -e "\n" >> Pipeline_False_Intermediate.intermediate.FN.${Antibiotic}.FULL.txt			  
+				  echo -e "$IntermediateStrain,Intermediate strain identified as sensitive for $Antibiotic" >> Pipeline_False_Intermediate.${Antibiotic}.txt  
 				fi
 	        fi 
 	    fi  
@@ -373,21 +337,10 @@ fi
 echo -e "Summary results for $Antibiotic"
 echo -e "Number of false negatives($Antibiotic) = $FalseNegative"
 echo -e "Number of false positive($Antibiotic) = $FalsePositive"
-echo -e "Number of false intermediates($Antibiotic) = $FalseIntermediate"
 echo -e "Number of true positives($Antibiotic) = $TruePositive"
 echo -e "Number of true negatives($Antibiotic) = $TrueNegative"
 echo -e "Number of true intermediates($Antibiotic) = $TrueIntermediate"
-
-echo -e "            Resistant strains identified as intermediate($Antibiotic) = $FalseIntermediate_res_FN" 
-echo -e "            Sensitive strains identified as intermediate($Antibiotic) = $FalseIntermediate_sens_FP" 
-echo -e "            Intermediate strains identified as resistant($Antibiotic) = $FalseIntermediate_int_FP" 
-echo -e "            Intermediate strains identified as sensitive($Antibiotic) = $FalseIntermediate_int_FN"
-good_int=$(echo "$FalseIntermediate_int_FP+$FalseIntermediate_res_FN" | bc)
-bad_int=$(echo "$FalseIntermediate_int_FN+$FalseIntermediate_sens_FP" | bc)
-#echo -e "            Bad intermediate($Antibiotic) = $bad_int"
-#echo -e "            Good intermediate($Antibiotic) = $good_int"           
-total_strains_no_int=$(echo "$FalseNegative + $FalsePositive + $TruePositive + $TrueNegative + $FalseIntermediate_res_FN + $FalseIntermediate_sens_FP" | bc )
+echo -e "Number of false intermediates($Antibiotic) = $FalseIntermediate"
 TotalStrains=$(echo "$FalseNegative + $FalsePositive + $TruePositive + $TrueNegative + $TrueIntermediate + $FalseIntermediate" | bc)
-echo -e "Total number of strains($Antibiotic) = $TotalStrains"
-echo -e "Total number of strains($Antibiotic) without intermediate = $total_strains_no_int\n"
+echo -e "Total number of strains($Antibiotic) = $TotalStrains\n"
 exit 0

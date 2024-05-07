@@ -8,7 +8,7 @@ echo -e "This script will determine the rate of false positives, false negatives
 DATASHEET=/home/dsarovich2/bin/ARDaP/Databases/Pseudomonas_aeruginosa/Pa_res_data.txt
 
 ref="/home/dsarovich/bin/Pa_PAO1.fasta"
-RESISTANCE_DB="/home/dsarovich/bin/Pseudomonas_aeruginosa_pao1.db"
+RESISTANCE_DB="/home/dsarovich/.nextflow/assets/dsarov/ardap/Databases/Pseudomonas_aeruginosa_pao1/Pseudomonas_aeruginosa_pao1.db"
 false_pos_check=1
 false_neg_check=1
 false_int_check=1
